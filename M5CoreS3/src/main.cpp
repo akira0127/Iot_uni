@@ -9,7 +9,6 @@ void setup()
 void loop()
 {
   // put your main code here, to run repeatedly:
-  Serial.println("hello world");
   M5.Lcd.println("hello world");
   delay(10000);
 }
