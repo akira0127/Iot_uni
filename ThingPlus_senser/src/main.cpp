@@ -1,8 +1,20 @@
+// #include <PubSubClient.h>
+// #include <WiFiManager.h>
+// #include <WiFi.h>
+// #include <Wire.h>
+// #include <ArduinoJson.h>
 // #include <Arduino.h>
 // #include <Wire.h>
 
 // #include "SparkFun_BNO08x_Arduino_Library.h" // CTRL+Click here to get the library: http://librarymanager/All#SparkFun_BNO08x
 // BNO08x myIMU;
+
+// const char *mqttHost = "192.168.0.21"; // MQTTブローカーのIPアドレスまたはホスト名
+// const int mqttPort = 1883;             // MQTTブローカーのポート
+// const char *topic = "iot";
+
+// WiFiClient wifiClient;
+// PubSubClient mqttClient(wifiClient);
 
 // void setup()
 // {
@@ -26,6 +38,19 @@
 
 //   Serial.println("Reading events");
 //   delay(100);
+//   // WiFiManagerのセットアップコード
+//   WiFiManager wifiManager;
+//   // WiFiManagerのリセット設定（オプション）
+//   // wifiManager.resetSettings();
+//   if (!wifiManager.autoConnect("AutoConnectAP"))
+//   {
+//     Serial.println("接続に失敗しました。設定ポータルを開きます。");
+//     delay(3000);
+//     ESP.restart(); // リセットして再試行するか、ディープスリープモードに移行する
+//     delay(5000);
+//   }
+//   Serial.println("Wi-Fiに接続しました。");
+//   mqttClient.setServer(mqttHost, mqttPort);
 // }
 
 // // Here is where you define the sensor outputs you want to receive
@@ -74,6 +99,38 @@
 //       Serial.println();
 //     }
 //   }
+
+//   if (!mqttClient.connected())
+//   {
+
+//     while (!mqttClient.connected())
+//     {
+//       Serial.println("Connecting to MQTT...");
+//       String clientId = "ESP32-iot_uni";
+//       if (mqttClient.connect(clientId.c_str()))
+//       {
+//         Serial.println("connected");
+//       }
+//       delay(3000);
+//       randomSeed(micros());
+//     }
+//     mqttClient.loop();
+//     // センサーデータをJSON形式に変換
+//     DynamicJsonDocument jsonDoc(256); // ここでは適切なサイズを指定してください
+//     jsonDoc["roll"] = roll;
+//     jsonDoc["pitch"] = pitch;
+//     jsonDoc["yaw"] = yaw;
+
+//     // JSONを文字列に変換
+//     String jsonString;
+//     serializeJson(jsonDoc, jsonString);
+
+//     // MQTTブローカーにメッセージを送信
+//     mqttClient.publish("topic", jsonString.c_str());
+
+//     // 一定の間隔でセンサーデータを送信
+//     delay(5000); // 5000ミリ秒（5秒）ごとに送信
+//   }
 // }
 
 #include <PubSubClient.h>
@@ -94,6 +151,8 @@ void setup()
   Serial.begin(115200);
   // WiFiManagerのセットアップコード
   WiFiManager wifiManager;
+    // WiFiManagerのリセット設定（オプション）
+  // wifiManager.resetSettings();
   if (!wifiManager.autoConnect("AutoConnectAP"))
   {
     Serial.println("接続に失敗しました。設定ポータルを開きます。");
