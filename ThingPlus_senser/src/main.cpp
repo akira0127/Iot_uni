@@ -139,62 +139,101 @@
 #include <Wire.h>
 #include <ArduinoJson.h>
 
-const char *mqttHost = "192.168.0.21"; // MQTTブローカーのIPアドレスまたはホスト名
-const int mqttPort = 1883;             // MQTTブローカーのポート
-const char *topic = "iot";
+// WiFiの設定
+const char ssid[] = "CPSLAB_WLX";
+const char password[] = "	6bepa8ideapbu";
+const char *mqttHost = "192.168.56.1";
+const int mqttPort = 1884;
+// ここまで
+const char *topic = "/test";
+char *payload;
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
 
+void connectWiFi()
+{
+  WiFi.begin(ssid, password);
+  Serial.printf("connecting to %s\n", ssid);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(1000);
+  }
+  Serial.printf("\nWiFi connected\n");
+}
+
+void connectMqtt()
+{
+  while (!mqttClient.connected())
+  {
+    Serial.println("connecting to MQTT...");
+    String clientID = "M5Stack-" + String(random(0xffff), HEX);
+    if (mqttClient.connect(clientID.c_str()))
+    {
+      Serial.println("connected");
+    }
+    else
+    {
+      delay(1000);
+      randomSeed(micros());
+    }
+  }
+}
+
+void mqttloop()
+{
+  if (!mqttClient.connected())
+  {
+    connectMqtt();
+  }
+  mqttClient.loop();
+}
+
 void setup()
 {
   Serial.begin(115200);
-  // WiFiManagerのセットアップコード
-  WiFiManager wifiManager;
-    // WiFiManagerのリセット設定（オプション）
-  // wifiManager.resetSettings();
-  if (!wifiManager.autoConnect("AutoConnectAP"))
-  {
-    Serial.println("接続に失敗しました。設定ポータルを開きます。");
-    delay(3000);
-    ESP.restart(); // リセットして再試行するか、ディープスリープモードに移行する
-    delay(5000);
-  }
-  Serial.println("Wi-Fiに接続しました。");
+  Wire.begin();
+  // // WiFiManagerのセットアップコード
+  // WiFiManager wifiManager;
+  // // WiFiManagerのリセット設定（オプション）
+  // // wifiManager.resetSettings();
+  // if (!wifiManager.autoConnect("AutoConnectAP"))
+  // {
+  //   Serial.println("接続に失敗しました。設定ポータルを開きます。");
+  //   delay(3000);
+  //   ESP.restart(); // リセットして再試行するか、ディープスリープモードに移行する
+  //   delay(5000);
+  // }
+  connectWiFi();
   mqttClient.setServer(mqttHost, mqttPort);
+  connectMqtt();
 }
 
 void loop()
 {
-  if (!mqttClient.connected())
+
+  // センサーデータをJSON形式に変換
+  DynamicJsonDocument jsonDoc(256); // ここでは適切なサイズを指定してください
+  jsonDoc["sensor_type"] = "temperature";
+  jsonDoc["value"] = 25.5;
+  jsonDoc["unit"] = "Celsius";
+
+  // JSONを文字列に変換
+  String jsonString;
+  serializeJson(jsonDoc, jsonString);
+
+  mqttClient.publish(topic, jsonString.c_str());
+  delay(1000);
+
+  // MQTTブローカーにメッセージを送信
+  if (WiFi.status() == WL_DISCONNECTED)
   {
-
-    while (!mqttClient.connected())
-    {
-      Serial.println("Connecting to MQTT...");
-      String clientId = "ESP32-iot_uni";
-      if (mqttClient.connect(clientId.c_str()))
-      {
-        Serial.println("connected");
-      }
-      delay(3000);
-      randomSeed(micros());
-    }
-    mqttClient.loop();
-    // センサーデータをJSON形式に変換
-    DynamicJsonDocument jsonDoc(256); // ここでは適切なサイズを指定してください
-    jsonDoc["sensor_type"] = "temperature";
-    jsonDoc["value"] = 25.5;
-    jsonDoc["unit"] = "Celsius";
-
-    // JSONを文字列に変換
-    String jsonString;
-    serializeJson(jsonDoc, jsonString);
-
-    // MQTTブローカーにメッセージを送信
-    mqttClient.publish("topic", jsonString.c_str());
-
-    // 一定の間隔でセンサーデータを送信
-    delay(5000); // 5000ミリ秒（5秒）ごとに送信
+    connectWiFi();
   }
+  mqttloop();
+  delay(100);
+
+  // 一定の間隔でセンサーデータを送信
+  delay(5000); // 5000ミリ秒（5秒）ごとに送信
 }
