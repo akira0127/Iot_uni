@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebSocket, Chart.js and Three.js</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/99/three.min.js"></script>
+    <style>
+      /* 追加のスタイル設定 */
+      #sensorChart {
+        width: 90vw; /* グラフの幅を90%に設定 */
+        max-width: 800px; /* グラフの最大幅を800pxに設定 */
+      }
+
+      #statusDisplay {
+        padding: 10px;
+        border: 2px solid; /* ボーダーの初期値を設定 */
+        width: max-content;
+      }
+
+      .danger {
+        border-color: red; /* 危険な場合のボーダーカラー */
+      }
+
+      .safe {
+        border-color: green; /* 正常な場合のボーダーカラー */
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Canvas要素 -->
+    <canvas id="sensorChart" width="400" height="200"></canvas>
+
+    <div>
+      <p id="statusDisplay">状態：</p>
+    </div>
+
+    <script>
+      const socket = new WebSocket("ws://localhost:1880/ws/ws");
+
+      // 初期データ（ダミーデータ）の生成
+      const initialData = {
+        x: Array.from({ length: 50 }, () => 0),
+        y: Array.from({ length: 50 }, () => 0),
+        z: Array.from({ length: 50 }, () => 0),
+      };
+
+      // Chart.js用のデータ構造
+      const chartData = {
+        labels: Array.from({ length: 50 }, (_, i) => i + 1),
+        datasets: [
+          {
+            label: "X",
+            borderColor: "blue",
+            data: initialData.x,
+          },
+          {
+            label: "Y",
+            borderColor: "red",
+            data: initialData.y,
+          },
+          {
+            label: "Z",
+            borderColor: "green",
+            data: initialData.z,
+          },
+        ],
+      };
+
+      const chartOptions = {
+        scales: {
+          x: {
+            type: "linear",
+            position: "bottom",
+          },
+          y: {
+            min: -180,
+            max: 180,
+          },
+        },
+      };
+
+      // グラフ描画用のChartオブジェクト
+      const sensorChart = new Chart(document.getElementById("sensorChart"), {
+        type: "line",
+        data: chartData,
+        options: chartOptions,
+      });
+
+      // Three.js関連のコード
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // 長方形の幅、高さ、奥行き
+      const width = 1;
+      const height = 2;
+      const depth = 1;
+
+      const geometry = new THREE.BoxGeometry(width, height, depth);
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      const cube = new THREE.Mesh(geometry, material);
+      scene.add(cube);
+
+      camera.position.z = 5;
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // 立方体の向きを変更する
+        cube.rotation.x = THREE.Math.degToRad(
+          chartData.datasets[0].data[0] // x軸の値を取得
+        );
+        cube.rotation.y = THREE.Math.degToRad(
+          chartData.datasets[1].data[0] //
+        ); // y軸の値を0に設定
+        cube.rotation.z = THREE.Math.degToRad(chartData.datasets[2].data[0]); // z軸の値を0に設定
+
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      // WebSocketからのデータ受信処理
+      socket.addEventListener("message", (event) => {
+        const data = JSON.parse(event.data);
+
+        // データを更新
+        chartData.datasets[0].data.shift();
+        chartData.datasets[0].data.push(data.x);
+
+        chartData.datasets[1].data.shift();
+        chartData.datasets[1].data.push(data.y);
+
+        chartData.datasets[2].data.shift();
+        chartData.datasets[2].data.push(data.z);
+
+        // グラフを再描画
+        sensorChart.update();
+
+        // 状態を表示し、条件に応じてクラスを追加
+        const statusDisplay = document.getElementById("statusDisplay");
+        if (data.y < 0 || data.x < 0) {
+          statusDisplay.innerText = "状態：危険です";
+          statusDisplay.classList.add("danger");
+          statusDisplay.classList.remove("safe");
+        } else {
+          statusDisplay.innerText = "状態：正常です";
+          statusDisplay.classList.add("safe");
+          statusDisplay.classList.remove("danger");
+        }
+      });
+    </script>
+  </body>
+</html>
